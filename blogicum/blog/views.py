@@ -1,226 +1,217 @@
-from django.utils import timezone
-from django.views.generic import (
-    CreateView,
-    UpdateView,
-    DetailView,
-)
-from django.urls import reverse_lazy
+from datetime import datetime
+
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Count
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth import update_session_auth_hash
-from django.contrib.auth import get_user_model
-from django.http import Http404
-from django.http import HttpResponseForbidden
 
-from blog.forms import PostForm, CommentForm, ProfileForm, PasswordChangeForm
-from blog.models import Post, Category, Comment
+from .forms import PostForm, CommentForm, UserForm
+from .models import Post, Category, User, Comment
 
 
-LIMIT_POSTS = 10
-
-User = get_user_model()
+PAGINATOR_BY = 10
 
 
-def profile_view(request, username):
-    user = get_object_or_404(User, username=username)
-    posts = user.posts.all()
-    current_time = timezone.now()
-    if request.user.username != username:
-        posts = posts.filter(
+"""Фильтр получение постов"""
+
+
+def get_posts(**kwargs):
+    return Post.objects.select_related(
+        'category',
+        'location',
+        'author'
+    ).annotate(comment_count=Count('comments')
+               ).filter(**kwargs).order_by('-pub_date')
+
+
+"""Пагинатор"""
+
+
+def get_paginator(request, queryset,
+                  number_of_pages=PAGINATOR_BY):
+    paginator = Paginator(queryset, number_of_pages)
+    page_number = request.GET.get('page')
+    return paginator.get_page(page_number)
+
+
+"""Главная страница"""
+
+
+def index(request):
+    posts = get_posts(
+        is_published=True,
+        category__is_published=True,
+        pub_date__lte=datetime.now())
+    page_obj = get_paginator(request, posts)
+    context = {'page_obj': page_obj}
+    return render(request, 'blog/index.html', context)
+
+
+"""Отображение публикаций в категории"""
+
+
+def category_posts(request, category_slug):
+    category = get_object_or_404(
+        Category,
+        slug=category_slug,
+        is_published=True)
+    posts = get_posts(
+        is_published=True,
+        category__is_published=True,
+        pub_date__lte=datetime.now(),
+        category=category)
+    page_obj = get_paginator(request, posts)
+    context = {'category': category,
+               'page_obj': page_obj}
+    return render(request, 'blog/category.html', context)
+
+
+"""Отображение полного описания выбранной публикации"""
+
+
+def post_detail(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+    if request.user != post.author:
+        post = get_object_or_404(
+            Post,
+            id=post_id,
             is_published=True,
             category__is_published=True,
-            pub_date__lte=current_time,
-        )
-
-    paginator = Paginator(posts, LIMIT_POSTS)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    context = {
-        'profile': user,
-        'page_obj': page_obj,
-    }
-    return render(request, 'blog/profile.html', context)
+            pub_date__lte=datetime.now())
+    form = CommentForm(request.POST or None)
+    comments = Comment.objects.select_related(
+        'author').filter(post=post)
+    context = {'post': post,
+               'form': form,
+               'comments': comments}
+    return render(request, 'blog/detail.html', context)
 
 
-class ProfileUpdateView(LoginRequiredMixin, UpdateView):
-    model = User
-    form_class = ProfileForm
-    template_name = 'blog/user.html'
-
-    def get_object(self, queryset=None):
-        return self.request.user
-
-    def get_success_url(self):
-        return reverse_lazy(
-            'blog:profile', kwargs={'username': self.request.user.username}
-        )
+"""Создание публикации"""
 
 
 @login_required
-def password_change_view(request, username):
-    user = request.user
-    form = PasswordChangeForm(user, request.POST)
-    if request.method == 'POST' and form.is_valid():
-        user = form.save()
-        update_session_auth_hash(request, user)
-        return redirect('blog:password_change_done')
-    else:
-        form = PasswordChangeForm(user)
+def create_post(request):
+    form = PostForm(request.POST or None, files=request.FILES or None)
+    if form.is_valid():
+        post = form.save(commit=False)
+        post.author = request.user
+        post.save()
+        return redirect('blog:profile', request.user)
     context = {'form': form}
-    return render(request, 'blog/password_change_form.html', context)
+    return render(request, 'blog/create.html', context)
 
 
-class PostMixin:
-    model = Post
-    form_class = PostForm
-    template_name = 'blog/create.html'
+"""Редактирование публикации"""
 
 
-class PostCreateView(LoginRequiredMixin, PostMixin, CreateView):
-    pk_url_kwarg = 'post_id'
+@login_required
+def edit_post(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+    if request.user != post.author:
+        return redirect('blog:detail', post_id)
+    form = PostForm(request.POST or None, instance=post)
+    if form.is_valid():
+        form.save()
+        return redirect('blog:detail', post_id)
+    context = {'form': form}
+    return render(request, 'blog/create.html', context)
 
-    def form_valid(self, form):
-        form.instance.author = self.request.user
-        return super().form_valid(form)
 
-
-class PostUpdateView(LoginRequiredMixin, PostMixin, UpdateView):
-    pk_url_kwarg = 'post_id'
-
-    def dispatch(self, request, *args, **kwargs):
-        if self.get_object().author != self.request.user:
-            return redirect('blog:post_detail', self.kwargs['post_id'])
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['is_edit'] = True
-        return context
+"""Удаление публикации"""
 
 
 @login_required
 def delete_post(request, post_id):
-    template_name = 'blog/create.html'
-    delete_post = get_object_or_404(
-        Post, pk=post_id, author__username=request.user
-    )
-    if request.method != 'POST':
-        context = {
-            'post': delete_post,
-            'is_delete': True,
-        }
-        return render(request, template_name, context)
-    if delete_post.author == request.user:
-        delete_post.delete()
-    return redirect('blog:profile', request.user)
+    post = get_object_or_404(Post, id=post_id)
+    if request.user != post.author:
+        return redirect('blog:detail', post_id)
+    form = PostForm(request.POST or None, instance=post)
+    if request.method == 'POST':
+        post.delete()
+        return redirect('blog:index')
+    context = {'form': form}
+    return render(request, 'blog/create.html', context)
 
 
-class PostDetailView(DetailView):
-    model = Post
-    template_name = 'blog/detail.html'
-    context_object_name = 'post'
-    pk_url_kwarg = 'post_id'
-
-    def get_object(self):
-        object = super(PostDetailView, self).get_object()
-        if self.request.user != object.author and (
-            not object.is_published or not object.category.is_published
-        ):
-            raise Http404()
-        return object
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['form'] = CommentForm()
-        context['comments'] = self.object.comments.select_related('author')
-        return context
-
-
-def index(request):
-    template = 'blog/index.html'
-    current_time = timezone.now()
-    post = Post.objects.select_related('category').filter(
-        pub_date__lte=current_time,
-        is_published=True,
-        category__is_published=True,
-    )
-    paginator = Paginator(post, LIMIT_POSTS)
-
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    context = {'page_obj': page_obj}
-    return render(request, template, context)
-
-
-def category_posts(request, category_slug):
-    template = 'blog/category.html'
-    current_time = timezone.now()
-    category = get_object_or_404(
-        Category, slug=category_slug, is_published=True
-    )
-    post_list = category.posts.select_related('category').filter(
-        is_published=True,
-        pub_date__lte=current_time,
-    )
-    paginator = Paginator(post_list, LIMIT_POSTS)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    context = {'category': category, 'page_obj': page_obj}
-    return render(request, template, context)
+"""Добавление комментария к публикации"""
 
 
 @login_required
 def add_comment(request, post_id):
-    post = get_object_or_404(Post, pk=post_id)
-    form = CommentForm(request.POST)
-
+    post = get_object_or_404(Post, id=post_id)
+    form = CommentForm(request.POST or None)
     if form.is_valid():
         comment = form.save(commit=False)
         comment.author = request.user
         comment.post = post
         comment.save()
-    return redirect('blog:post_detail', post_id)
+    return redirect('blog:detail', post_id)
+
+
+"""Редактирование комментария к публикации"""
 
 
 @login_required
 def edit_comment(request, post_id, comment_id):
     comment = get_object_or_404(Comment, id=comment_id)
-    if comment.author != request.user:
-        return HttpResponseForbidden(
-            'У вас нет прав для редактирования этого комментария.'
-        )
-
-    if request.method == 'POST':
-        form = CommentForm(request.POST, instance=comment)
-        if form.is_valid():
-            form.save()
-            return redirect('blog:post_detail', post_id)
-    else:
-        form = CommentForm(instance=comment)
-    context = {
-        'form': form,
-        'comment': comment,
-        'is_edit': True,
-    }
+    if request.user != comment.author:
+        return redirect('blog:detail', post_id)
+    form = CommentForm(request.POST or None, instance=comment)
+    if form.is_valid():
+        form.save()
+        return redirect('blog:detail', post_id)
+    context = {'comment': comment,
+               'form': form}
     return render(request, 'blog/comment.html', context)
+
+
+"""Удаление комментария к публикации"""
 
 
 @login_required
 def delete_comment(request, post_id, comment_id):
     comment = get_object_or_404(Comment, id=comment_id)
-    if comment.author != request.user:
-        return HttpResponseForbidden(
-            "У вас нет прав для удаления этого комментария."
-        )
-
-    if request.method == "POST":
+    if request.user != comment.author:
+        return redirect('blog:detail', post_id)
+    if request.method == 'POST':
         comment.delete()
-        return redirect('blog:post_detail', post_id)
-
-    context = {
-        'comment': comment,
-        'is_delete': True,
-    }
+        return redirect('blog:detail', post_id)
+    context = {'comment': comment}
     return render(request, 'blog/comment.html', context)
+
+
+"""Отображение страницы пользователя"""
+
+
+def profile(request, username):
+    profile = get_object_or_404(
+        User,
+        username=username)
+    posts = get_posts(author=profile)
+    if request.user != profile:
+        posts = get_posts(
+            is_published=True,
+            category__is_published=True,
+            pub_date__lte=datetime.now(),
+            author=profile)
+    page_obj = get_paginator(request, posts)
+    context = {'profile': profile,
+               'page_obj': page_obj}
+    return render(request, 'blog/profile.html', context)
+
+
+"""Редактирование страницы пользователя"""
+
+
+@login_required
+def edit_profile(request):
+    profile = get_object_or_404(
+        User,
+        username=request.user)
+    form = UserForm(request.POST or None, instance=profile)
+    if form.is_valid():
+        form.save()
+        return redirect('blog:profile', request.user)
+    context = {'form': form}
+    return render(request, 'blog/user.html', context)

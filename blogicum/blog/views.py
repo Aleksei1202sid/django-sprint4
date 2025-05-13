@@ -109,11 +109,11 @@ def create_post(request):
 def edit_post(request, post_id):
     post = get_object_or_404(Post, id=post_id)
     if request.user != post.author:
-        return redirect('blog:detail', post_id)
+        return redirect('blog:post_detail', post_id)
     form = PostForm(request.POST or None, instance=post)
     if form.is_valid():
         form.save()
-        return redirect('blog:detail', post_id)
+        return redirect('blog:post_detail', post_id=post_id)
     context = {'form': form}
     return render(request, 'blog/create.html', context)
 
@@ -125,7 +125,7 @@ def edit_post(request, post_id):
 def delete_post(request, post_id):
     post = get_object_or_404(Post, id=post_id)
     if request.user != post.author:
-        return redirect('blog:detail', post_id)
+        return redirect('blog:post_detail', post_id)
     form = PostForm(request.POST or None, instance=post)
     if request.method == 'POST':
         post.delete()
@@ -146,7 +146,7 @@ def add_comment(request, post_id):
         comment.author = request.user
         comment.post = post
         comment.save()
-    return redirect('blog:detail', post_id)
+    return redirect('blog:post_detail', post_id)
 
 
 """Редактирование комментария к публикации"""
@@ -156,11 +156,11 @@ def add_comment(request, post_id):
 def edit_comment(request, post_id, comment_id):
     comment = get_object_or_404(Comment, id=comment_id)
     if request.user != comment.author:
-        return redirect('blog:detail', post_id)
+        return redirect('blog:post_detail', post_id)
     form = CommentForm(request.POST or None, instance=comment)
     if form.is_valid():
         form.save()
-        return redirect('blog:detail', post_id)
+        return redirect('blog:post_detail', post_id)
     context = {'comment': comment,
                'form': form}
     return render(request, 'blog/comment.html', context)
@@ -173,10 +173,10 @@ def edit_comment(request, post_id, comment_id):
 def delete_comment(request, post_id, comment_id):
     comment = get_object_or_404(Comment, id=comment_id)
     if request.user != comment.author:
-        return redirect('blog:detail', post_id)
+        return redirect('blog:post_detail', post_id)
     if request.method == 'POST':
         comment.delete()
-        return redirect('blog:detail', post_id)
+        return redirect('blog:post_detail', post_id)
     context = {'comment': comment}
     return render(request, 'blog/comment.html', context)
 

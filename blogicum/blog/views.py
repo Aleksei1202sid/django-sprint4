@@ -14,8 +14,7 @@ from .models import Post, Category, User, Comment
 def optimal_queryset(
         manager=Post.objects,
         first_flag=True,
-        second_flag=True
-        ):
+        second_flag=True):
     queryset = manager.select_related(
         'category',
         'location',
@@ -177,7 +176,7 @@ def profile(request, username):
     page_obj = get_paginator(
         request,
         posts,
-        )
+    )
     context = {'profile': profile,
                'page_obj': page_obj}
     return render(request, 'blog/profile.html', context)

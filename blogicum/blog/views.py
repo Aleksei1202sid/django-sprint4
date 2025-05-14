@@ -57,8 +57,13 @@ def category_posts(request, category_slug):
     category = get_object_or_404(
         Category,
         slug=category_slug,
-        is_published=True)
-    posts = optimal_queryset(category.posts)
+        is_published=True,
+        )
+    posts = optimal_queryset(category.posts).filter(
+        is_published=True,
+        category__is_published=True,
+        pub_date__lte=datetime.now()
+    )
     page_obj = get_paginator(request, posts)
     context = {'category': category,
                'page_obj': page_obj}

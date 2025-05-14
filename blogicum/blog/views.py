@@ -13,7 +13,7 @@ from .models import Post, Category, User, Comment
 
 def optimal_queryset(
         manager=Post.objects,
-        first_flag=True,
+        first_flag=False,
         second_flag=True):
     queryset = manager.select_related(
         'category',
@@ -42,7 +42,11 @@ def get_paginator(request, queryset,
 
 # Главная страница
 def index(request):
-    posts = optimal_queryset()
+    posts = optimal_queryset().filter(
+            is_published=True,
+            category__is_published=True,
+            pub_date__lte=datetime.now()
+        )
     page_obj = get_paginator(request, posts)
     context = {'page_obj': page_obj}
     return render(request, 'blog/index.html', context)

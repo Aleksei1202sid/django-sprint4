@@ -13,7 +13,7 @@ from .models import Post, Category, User, Comment
 
 def optimal_queryset(
         manager=Post.objects,
-        first_flag=True,
+        first_flag=False,
         second_flag=True):
     queryset = manager.select_related(
         'category',
@@ -27,11 +27,7 @@ def optimal_queryset(
         )
     if second_flag:
         queryset = queryset.annotate(
-            comment_count=Count('comments')).filter(
-            is_published=True,
-            category__is_published=True,
-            pub_date__lte=datetime.now()
-        ).order_by('-pub_date')
+            comment_count=Count('comments')).order_by('-pub_date')
 
     return queryset
 

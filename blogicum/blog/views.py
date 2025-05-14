@@ -58,7 +58,7 @@ def category_posts(request, category_slug):
         Category,
         slug=category_slug,
         is_published=True,
-        )
+    )
     posts = optimal_queryset(category.posts).filter(
         is_published=True,
         category__is_published=True,
@@ -79,7 +79,8 @@ def post_detail(request, post_id):
             id=post_id,
             is_published=True,
             category__is_published=True,
-            pub_date__lte=datetime.now())
+            pub_date__lte=datetime.now()
+        )
     form = CommentForm()
     comments = post.comments.all().filter(post=post)
     context = {'post': post,

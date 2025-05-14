@@ -13,7 +13,7 @@ from .models import Post, Category, User, Comment
 
 def optimal_queryset(
         manager=Post.objects,
-        first_flag=False,
+        first_flag=True,
         second_flag=True):
     queryset = manager.select_related(
         'category',

@@ -26,6 +26,8 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 LOGIN_REDIRECT_URL = 'blog:index'
 
+# LOGOUT_REDIRECT_URL = 'blog:index'
+
 LOGIN_URL = 'login'
 
 CSRF_FAILURE_VIEW = 'pages.views.csrf_failure'
@@ -118,7 +120,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'ru-RU'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Europe/Moscow'  # Установите временную зону на UTC+3
+
+USE_TZ = True  # Убедитесь, что использование временных зон включено
 
 USE_I18N = True
 
@@ -130,3 +134,5 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+PAGINATOR_BY = 10

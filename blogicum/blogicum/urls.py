@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.views import LogoutView
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic.edit import CreateView
@@ -13,7 +14,6 @@ urlpatterns = [
     path('', include('blog.urls')),
     path('pages/', include('pages.urls')),
     path('admin/', admin.site.urls),
-    path('auth/', include('django.contrib.auth.urls')),
     path(
         'auth/registration/',
         CreateView.as_view(
@@ -23,4 +23,8 @@ urlpatterns = [
         ),
         name='registration',
     ),
+    path('auth/logout/',
+         LogoutView.as_view(template_name='registration/logged_out.html'),
+         name='logout'),
+    path('auth/', include('django.contrib.auth.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

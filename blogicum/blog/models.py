@@ -20,6 +20,7 @@ class BaseModel(models.Model):
         abstract = True
 
 
+
 class Category(BaseModel):
     title = models.CharField(max_length=TEXT_LENGTH, verbose_name='Заголовок')
     description = models.TextField(verbose_name='Описание')
@@ -96,8 +97,15 @@ class Comment(models.Model):
         verbose_name='Комментарий',
         related_name='comments',
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Дата публикации',
+        )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='Автор',
+        )
 
     class Meta:
         verbose_name = 'комментарий'

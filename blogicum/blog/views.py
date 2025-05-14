@@ -43,10 +43,10 @@ def get_paginator(request, queryset,
 # Главная страница
 def index(request):
     posts = optimal_queryset().filter(
-            is_published=True,
-            category__is_published=True,
-            pub_date__lte=datetime.now()
-        )
+        is_published=True,
+        category__is_published=True,
+        pub_date__lte=datetime.now()
+    )
     page_obj = get_paginator(request, posts)
     context = {'page_obj': page_obj}
     return render(request, 'blog/index.html', context)

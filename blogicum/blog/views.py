@@ -1,22 +1,10 @@
-# from django.core.paginator import Paginator
-# from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404, redirect
-# from django.utils import timezone
-# не пропускают тесты
 
 from .forms import PostForm, CommentForm, UserForm
 from .models import Post, Category, User, Comment
 from .paginate import get_paginator
 from .utils import optimal_queryset
-
-
-# def get_paginator(request, queryset,
-#                   number_of_pages=settings.PAGINATOR_BY):
-#     """Пагинатор."""
-#     paginator = Paginator(queryset, number_of_pages)
-#     page_number = request.GET.get('page')
-#     return paginator.get_page(page_number)
 
 
 def index(request):

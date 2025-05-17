@@ -1,85 +1,59 @@
-from datetime import datetime
-# TIMEZONE добавил в setting.py
-
 from django.core.paginator import Paginator
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.db.models import Count
 from django.shortcuts import render, get_object_or_404, redirect
+from django.utils import timezone
 
 from .forms import PostForm, CommentForm, UserForm
 from .models import Post, Category, User, Comment
+from .utils import optimal_queryset
 
 
-def optimal_queryset(
-        manager=Post.objects,
-        first_flag=False,
-        second_flag=True):
-    queryset = manager.select_related(
-        'category',
-        'location',
-        'author')
-    if first_flag:
-        queryset = queryset.filter(
-            is_published=True,
-            category__is_published=True,
-            pub_date__lte=datetime.now()
-        )
-    if second_flag:
-        queryset = queryset.annotate(
-            comment_count=Count('comments')).order_by('-pub_date')
-
-    return queryset
-
-
-# Пагинатор
 def get_paginator(request, queryset,
                   number_of_pages=settings.PAGINATOR_BY):
+    """Пагинатор."""
     paginator = Paginator(queryset, number_of_pages)
     page_number = request.GET.get('page')
     return paginator.get_page(page_number)
 
 
-# Главная страница
 def index(request):
-    posts = optimal_queryset().filter(
-        is_published=True,
-        category__is_published=True,
-        pub_date__lte=datetime.now()
-    )
+    """Главная страница."""
+    posts = optimal_queryset(filter_published=True)
     page_obj = get_paginator(request, posts)
     context = {'page_obj': page_obj}
     return render(request, 'blog/index.html', context)
 
 
-# Отображение публикаций в категории
 def category_posts(request, category_slug):
+    """Отображение публикаций в категории."""
     category = get_object_or_404(
         Category,
         slug=category_slug,
         is_published=True,
     )
-    posts = optimal_queryset(category.posts).filter(
-        is_published=True,
-        category__is_published=True,
-        pub_date__lte=datetime.now()
-    )
+    posts = optimal_queryset(category.posts, filter_published=True)
     page_obj = get_paginator(request, posts)
     context = {'category': category,
                'page_obj': page_obj}
     return render(request, 'blog/category.html', context)
 
 
-# Отображение полного описания выбранной публикации
 def post_detail(request, post_id):
-    post = get_object_or_404(optimal_queryset(), id=post_id)
+    """Отображение полного описания выбранной публикации."""
+    post = get_object_or_404(optimal_queryset(
+        filter_published=True,
+        annotate_comments=False
+    ),
+        id=post_id
+    )
     if request.user != post.author:
         post = get_object_or_404(
-            optimal_queryset(),
+            optimal_queryset(
+                filter_published=True,
+                annotate_comments=False
+            ),
             id=post_id,
-            is_published=True,
-            category__is_published=True,
-            pub_date__lte=datetime.now()
         )
     form = CommentForm()
     comments = post.comments.all().filter(post=post)
@@ -89,9 +63,9 @@ def post_detail(request, post_id):
     return render(request, 'blog/detail.html', context)
 
 
-# Создание публикации
 @login_required
 def create_post(request):
+    """Создание публикации."""
     form = PostForm(request.POST or None, files=request.FILES or None)
     if form.is_valid():
         post = form.save(commit=False)
@@ -102,9 +76,9 @@ def create_post(request):
     return render(request, 'blog/create.html', context)
 
 
-# Редактирование публикации
 @login_required
 def edit_post(request, post_id):
+    """Редактирование публикации."""
     post = get_object_or_404(Post, id=post_id)
     if request.user != post.author:
         return redirect('blog:post_detail', post_id)
@@ -116,9 +90,9 @@ def edit_post(request, post_id):
     return render(request, 'blog/create.html', context)
 
 
-# Удаление публикации
 @login_required
 def delete_post(request, post_id):
+    """Удаление публикации."""
     post = get_object_or_404(Post, id=post_id)
     if request.user != post.author:
         return redirect('blog:post_detail', post_id)
@@ -130,9 +104,9 @@ def delete_post(request, post_id):
     return render(request, 'blog/create.html', context)
 
 
-# Добавление комментария к публикации
 @login_required
 def add_comment(request, post_id):
+    """Добавление комментария к публикации."""
     post = get_object_or_404(Post, id=post_id)
     form = CommentForm(request.POST or None)
     if form.is_valid():
@@ -143,9 +117,9 @@ def add_comment(request, post_id):
     return redirect('blog:post_detail', post_id)
 
 
-# Редактирование комментария к публикации
 @login_required
 def edit_comment(request, post_id, comment_id):
+    """Редактирование комментария к публикации."""
     comment = get_object_or_404(Comment, post=post_id, id=comment_id)
     if request.user != comment.author:
         return redirect('blog:post_detail', post_id)
@@ -158,9 +132,9 @@ def edit_comment(request, post_id, comment_id):
     return render(request, 'blog/comment.html', context)
 
 
-# Удаление комментария к публикации
 @login_required
 def delete_comment(request, post_id, comment_id):
+    """Удаление комментария к публикации."""
     comment = get_object_or_404(Comment, post=post_id, id=comment_id)
     if request.user != comment.author:
         return redirect('blog:post_detail', post_id)
@@ -171,14 +145,17 @@ def delete_comment(request, post_id, comment_id):
     return render(request, 'blog/comment.html', context)
 
 
-# Отображение страницы пользователя
 def profile(request, username):
+    """Отображение страницы пользователя."""
     profile = get_object_or_404(
         User,
         username=username)
     posts = optimal_queryset(profile.posts)
     if request.user != profile:
-        posts = optimal_queryset(profile.posts)
+        posts = optimal_queryset(
+            profile.posts,
+            filter_published=True
+        )
     page_obj = get_paginator(
         request,
         posts,
@@ -188,9 +165,9 @@ def profile(request, username):
     return render(request, 'blog/profile.html', context)
 
 
-# Редактирование страницы пользователя
 @login_required
 def edit_profile(request):
+    """Редактирование страницы пользователя."""
     profile = request.user
     form = UserForm(request.POST or None, instance=profile)
     if form.is_valid():

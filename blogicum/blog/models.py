@@ -104,6 +104,7 @@ class Comment(models.Model):
         User,
         on_delete=models.CASCADE,
         verbose_name='Автор',
+        related_name='comments',
     )
 
     class Meta:

@@ -16,6 +16,7 @@ class PostForm(forms.ModelForm):
 # А когда я добавляю format, время замирает при редактировании поста
 # в моменте создания поста.
 
+
 class CommentForm(forms.ModelForm):
 
     class Meta:

@@ -1,7 +1,8 @@
 from datetime import datetime
 
 from django.db.models import Count
-from django.utils import timezone
+# from django.utils import timezone
+# не пропускают тесты
 
 from .models import Post
 

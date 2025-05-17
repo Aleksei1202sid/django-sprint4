@@ -43,7 +43,6 @@ def category_posts(request, category_slug):
 def post_detail(request, post_id):
     """Отображение полного описания выбранной публикации."""
     post = get_object_or_404(optimal_queryset(
-        filter_published=True,
         annotate_comments=False
     ),
         id=post_id

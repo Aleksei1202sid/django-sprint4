@@ -37,7 +37,7 @@ CSRF_FAILURE_VIEW = 'pages.views.csrf_failure'
 STATIC_URL = 'static/'
 
 STATICFILES_DIRS = [
-    BASE_DIR / 'static_dev',
+    BASE_DIR / 'static',
 ]
 
 INSTALLED_APPS = [

@@ -12,9 +12,6 @@ class PostForm(forms.ModelForm):
             'pub_date': forms.DateTimeInput(format='%Y-%m-%d %H:%M:%S',
                                             attrs={'type': 'datetime-local'}),
         }
-# Не могу понять зачем вносить format, у меня и так время работало.
-# А когда я добавляю format, время замирает при редактировании поста
-# в моменте создания поста.
 
 
 class CommentForm(forms.ModelForm):

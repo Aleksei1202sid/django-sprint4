@@ -1,8 +1,8 @@
-from datetime import datetime
+# from datetime import datetime
 
 from django.db.models import Count
-# from django.utils import timezone
-# не пропускают тесты
+from django.utils import timezone
+
 
 from .models import Post
 
@@ -19,7 +19,7 @@ def optimal_queryset(
         queryset = queryset.filter(
             is_published=True,
             category__is_published=True,
-            pub_date__lte=datetime.now()
+            pub_date__lte=timezone.now()
         )
     if annotate_comments:
         queryset = queryset.annotate(
